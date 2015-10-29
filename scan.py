@@ -1,6 +1,7 @@
 import serial
 import sys
 import time
+import argparse
 
 import pylibftdi
 import numpy as np
@@ -12,11 +13,6 @@ N_READINGS      = 30                                # number of sensor readings 
 MAX_READ_WAIT   = (READING_DELAY*N_READINGS) + 15   # maximum period to wait for sensor reads
 SETTLE_TIME     = 2                                 # time to wait after moving stages before taking the first reading
 SERIALS         = [45855916, 45855915]              # serial numbers of stages (x, y)
-
-SCAN_WINDOW     = [(15, 160), (79, 299)]            # [(x_lo, x_hi), (y_lo, y_hi)] scan window
-## RASTER SCAN
-RASTER_X_INTERVAL   = 10
-RASTER_Y_INTERVAL   = 10
 
 def readSensor(n_readings, reading_delay, max_read_wait):
   ser = serial.Serial(
@@ -108,24 +104,24 @@ def begin(home=False):
     print "x homed (" + str(homeStage(SERIALS[0], SETTLE_TIME)) + "mm)"
     print "y homed (" + str(homeStage(SERIALS[1], SETTLE_TIME)) + "mm)"
   print "moving to starting position.."
-  print "x stage at: " + str(moveStageAbs(SERIALS[0], SCAN_WINDOW[0][0], SETTLE_TIME)) + "mm"
-  print "y stage at: " + str(moveStageAbs(SERIALS[1], SCAN_WINDOW[1][0], SETTLE_TIME)) + "mm"
+  print "x stage at: " + str(moveStageAbs(SERIALS[0], args.w[0][0], SETTLE_TIME)) + "mm"
+  print "y stage at: " + str(moveStageAbs(SERIALS[1], args.w[1][0], SETTLE_TIME)) + "mm"
   print "ready"
   
-def raster_scan():
-  X_R = SCAN_WINDOW[0][1] - SCAN_WINDOW[0][0]
-  Y_R = SCAN_WINDOW[1][1] - SCAN_WINDOW[1][0]  
+def raster_scan(outfile):
+  X_R = args.w[0][1] - args.w[0][0]
+  Y_R = args.w[1][1] - args.w[1][0]  
   serial_x = SERIALS[0]
   serial_y = SERIALS[1]
   x_s = getStagePos(serial_x)
-  for y in range(0, Y_R+RASTER_Y_INTERVAL, RASTER_Y_INTERVAL):
-    moveStageRel(serial_y, RASTER_Y_INTERVAL, SETTLE_TIME)
+  for y in np.arange(0, Y_R+args.syi, args.syi):
+    moveStageRel(serial_y, args.syi, SETTLE_TIME)
     moveStageAbs(serial_x, x_s, SETTLE_TIME)
-    for x in range(0, X_R+RASTER_X_INTERVAL, RASTER_X_INTERVAL):
-      with open("results", "a") as f:
+    for x in np.arange(0, X_R+args.sxi, args.sxi):
+      with open(outfile, "a") as f:
         mean, stdev = readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
         f.write(str(getStagePos(serial_x)) + '\t' + str(getStagePos(serial_y)) + '\t' + str(mean) + '\t' + str(stdev) + '\n')
-      moveStageRel(serial_x, RASTER_X_INTERVAL, SETTLE_TIME)
+      moveStageRel(serial_x, args.sxi, SETTLE_TIME)
    
 def moveStageRel(stage_serial, dist, settle_time):
   with pyAPT.MTS50(serial_number=stage_serial) as con:
@@ -150,14 +146,31 @@ def homeStage(stage_serial, settle_time):
     return con.position()
       
 if __name__ == "__main__":
-  if sys.argv[1] == 'r':
+  parser = argparse.ArgumentParser()
+  parser.add_argument('f', help="path to output file", action="store", type=str, default="results")
+  parser.add_argument('--r', action="store_true", help="read sensor")
+  parser.add_argument('--m', action="store_true", help="move stages to starting position")
+  parser.add_argument('--s', action="store_true", help="start scan")
+  parser.add_argument('--w', help="window to scan over (x1,x2,y1,y2) (mm)", action="store", type=str)
+  parser.add_argument('--sxi', help="scan x interval (mm)", action="store", type=float, default=0.01)
+  parser.add_argument('--syi', help="scan y interval (mm)", action="store", type=float, default=0.01)
+  args = parser.parse_args()
+  
+  if args.w is None:
+    print("Window not defined.")
+    exit(0)
+  args.w = ([float(n) for n in args.w.split(',')])
+  args.w = [(args.w[0], args.w[1]), (args.w[2], args.w[3])]
+
+  print args
+
+  if args.r:
     print readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
-  elif sys.argv[1] == 'm': 
+  if args.m: 
     begin()
-  elif sys.argv[1] == 's':
-    raster_scan()
-  elif sys.argv[1] == 'b':
-    begin()
-    raster_scan()
+  if args.s:
+    raster_scan(args.f)
+
+
 	
 
