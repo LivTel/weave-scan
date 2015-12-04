@@ -56,8 +56,8 @@ class Controller(object):
     # some conservative limits
     # velocity is in mm/s
     # acceleration is in mm^2/s
-    self.max_velocity = 0.3
-    self.max_acceleration = 0.3
+    self.max_velocity = 10
+    self.max_acceleration = 1
 
     # these define how encode count translates into position, velocity
     # and acceleration. e.g. 1 mm is equal to 1 * self.position_scale

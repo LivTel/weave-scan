@@ -10,11 +10,13 @@ from __future__ import print_function
 import time
 import pyAPT
 
+
 from runner import runner_serial
 
 @runner_serial
 def home(serial):
   with pyAPT.MTS50(serial_number=serial) as con:
+    con.velocity_parameters()
     print('\tIdentifying controller')
     con.identify()
     print('\tHoming parameters:', con.request_home_params())

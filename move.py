@@ -22,6 +22,9 @@ def main(args):
 
   try:
     with pyAPT.MTS50(serial_number=serial) as con:
+      print(con.velocity_parameters()); 
+      con.set_velocity_parameters()
+      print(con.velocity_parameters()); 
       print('Found APT controller S/N',serial)
       print('\tMoving stage by %.2fmm...'%(dist), end=' ')
       con.move(dist)

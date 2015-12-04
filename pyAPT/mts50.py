@@ -12,8 +12,8 @@ class MTS50(Controller):
     # Note that these values are pulled from the APT User software,
     # as they agree with the real limits of the stage better than
     # what the website or the user manual states
-    self.max_velocity = 3.0
-    self.max_acceleration = 1.0
+    self.max_velocity = 10
+    self.max_acceleration = 2.0
 
     # from private communication with thorlabs tech support:
     # steps per revolution: 200
