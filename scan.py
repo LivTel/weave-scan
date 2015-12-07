@@ -2,6 +2,7 @@ import serial
 import sys
 import time
 import argparse
+import math
 
 import pylibftdi
 import numpy as np
@@ -9,10 +10,10 @@ import numpy as np
 import pyAPT
 
 READING_DELAY   = 0                                 # delay in seconds between consecutive sensor readings
-N_READINGS      = 10                                # number of sensor readings to take
+N_READINGS      = 100                               # number of sensor readings to take
 MAX_READ_WAIT   = (READING_DELAY*N_READINGS) + 15   # maximum period to wait for sensor reads
 SETTLE_TIME     = 0                                 # time to wait after moving stages before taking the first reading
-SERIALS         = [45855916, 45855915]              # serial numbers of stages (x, y)
+SERIALS         = [45855915, 45855916]              # serial numbers of stages (x, y)
 
 def readSensor(n_readings, reading_delay, max_read_wait):
   ser = serial.Serial(
@@ -109,19 +110,35 @@ def begin(home=False):
   print "ready"
   
 def raster_scan(outfile):
-  X_R = args.w[0][1] - args.w[0][0]
-  Y_R = args.w[1][1] - args.w[1][0]  
+  X_R = args.w[0][1]-args.w[0][0]
+  Y_R = args.w[1][1]-args.w[1][0]  
   serial_x = SERIALS[0]
   serial_y = SERIALS[1]
   x_s = getStagePos(serial_x)
-  for y in np.arange(0, Y_R+args.syi, args.syi):
-    moveStageRel(serial_y, args.syi, SETTLE_TIME)
+  for idx_y, y in enumerate(np.arange(0, Y_R+args.syi, args.syi)):
+    if idx_y == 0:					# start the clock if first scan
+      n_scans = 0
+      t_start = time.time()
+    else:
+      moveStageRel(serial_y, args.syi, SETTLE_TIME)	# don't want to increment this the first time!
     moveStageAbs(serial_x, x_s, SETTLE_TIME)
     for x in np.arange(0, X_R+args.sxi, args.sxi):
       with open(outfile, "a") as f:
         mean, stdev = readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
         f.write(str(getStagePos(serial_x)) + '\t' + str(getStagePos(serial_y)) + '\t' + str(mean) + '\t' + str(stdev) + '\n')
       moveStageRel(serial_x, args.sxi, SETTLE_TIME)
+
+      n_scans = n_scans+1
+      t_elapsed = time.time()-t_start
+      rate = n_scans/t_elapsed
+      n_scans_tot = len(np.arange(0, Y_R+args.syi, args.syi))*len(np.arange(0, X_R+args.sxi, args.sxi))
+      n_scans_left = n_scans_tot-n_scans
+      print
+      print("scan " + str(n_scans) + " of " + str(int(n_scans_tot)))
+      print("-> approximate time elapsed " + str(round(t_elapsed,1)) + "s")
+      print("-> approximate rate of " + str(round(rate,1)) + " scans/s")
+      print("-> approximate time left " + str(round(n_scans_left/rate,1)) + "s")
+      print 
    
 def moveStageRel(stage_serial, dist, settle_time):
   with pyAPT.MTS50(serial_number=stage_serial) as con:
@@ -155,17 +172,21 @@ if __name__ == "__main__":
   parser.add_argument('--sxi', help="scan x interval (mm)", action="store", type=float, default=0.01)
   parser.add_argument('--syi', help="scan y interval (mm)", action="store", type=float, default=0.01)
   args = parser.parse_args()
-  
-  if args.w is None:
-    print("Window not defined.")
-    exit(0)
-  args.w = ([float(n) for n in args.w.split(',')])
-  args.w = [(args.w[0], args.w[1]), (args.w[2], args.w[3])]
-
-  print args
 
   if args.r:
-    print readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
+    while True:
+      res = readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
+      print str(time.time()), '\t', str(res[0]), '\t', str(res[1])
+      with open(args.f, 'a') as f:
+        f.write(str(time.time()) + '\t' + str(res[0]) + '\t' + str(res[1]) + '\n')
+
+  if args.m or args.s:
+    if args.w is None:
+      print("Window not defined.")
+      exit(0)
+    args.w = ([float(n) for n in args.w.split(',')])
+    args.w = [(args.w[0], args.w[1]), (args.w[2], args.w[3])]
+
   if args.m: 
     begin()
   if args.s:

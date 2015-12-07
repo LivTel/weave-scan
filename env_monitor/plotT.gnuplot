@@ -58,7 +58,6 @@ set terminal png
 set output "/var/www/html/S_full.png"
 set xlabel "Time"
 set ylabel "Sensor Reading (um)"
-set yr [0:13000]
 set xdata time
 set timefmt "%s" 
 set format x "%H:%M %m/%d"
@@ -76,6 +75,6 @@ set timefmt "%s"
 set format x "%H:%M %m/%d"
 set xtic rotate by -90
 set offsets 0, 0, 0, 0 
-plot "S.dat" using 1:2
+plot "<(tail -1200 S.dat)" using 1:2
 
 pause 10; refresh; reread

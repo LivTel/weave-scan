@@ -118,6 +118,7 @@ for idx, yy in enumerate(yy_interpolated):
 print_stats(zz_interpolated)'''
 
 # this is fitting for surface
+print "Fitting surface..."
 xx_interpolated_1d = xx_interpolated.flatten()							# cast to 1d
 yy_interpolated_1d = yy_interpolated.flatten()							
 zz_interpolated_1d = zz_interpolated.flatten()
