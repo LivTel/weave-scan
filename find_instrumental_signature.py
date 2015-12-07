@@ -1,5 +1,4 @@
 import sys
-import itertools
 import argparse
 
 from mpl_toolkits.mplot3d import Axes3D
@@ -10,39 +9,14 @@ from scipy import interpolate, optimize, signal
 from scipy.interpolate import griddata, interp1d
 import pyfits
 
-def print_stats(array):
-    print
-    print "Percentile (0.5) of data is: " + '\t\t\t' + str(round(np.nanpercentile(array, 0.5), 2)) + "um"
-    print "Percentile (99.5) of data is: " + '\t\t\t' + str(round(np.nanpercentile(array, 99.5), 2)) + "um"
-    print "Peak-to-peak amplitude of structure is: " + '\t' + str(round(np.nanpercentile(array, 99.5)-np.nanpercentile(array, 0.5), 2)) + "um"
-    print "Percentile (99.5) of absolute error is: " + '\t' + str(round(np.nanpercentile(abs(array), 99.5), 2)) + "um"
-    print 
-
-def polyfit2d(x, y, z, order=1, linear=False):
-    ncols = (order + 1)**2
-    G = np.zeros((x.size, ncols))
-    ij = itertools.product(range(order+1), range(order+1))
-    for k, (i,j) in enumerate(ij):
-        G[:,k] = x**i * y**j
-        if linear & (i != 0.) & (j != 0.):
-            G[:, k] = 0
-    m, _, _, _ = np.linalg.lstsq(G, z)
-    return m
-
-def polyval2d(x, y, m):
-    order = int(np.sqrt(len(m))) - 1
-    ij = itertools.product(range(order+1), range(order+1))
-    z = np.zeros_like(x)
-    for a, (i,j) in zip(m, ij):
-        z += a * x**i * y**j
-    return z
+from functions import print_stats, polyfit2d, polyval2d, read_data_file, correct_stage_positions
 
 parser = argparse.ArgumentParser()
 parser.add_argument('f', help="path to flat", action="store", type=str)
 parser.add_argument('--w', help="window, defaults to min/max of data (x1,x2,y1,y2)", action="store", type=str, default='10,290,10,290')
 parser.add_argument('--i', help="increment of interpolated grid as CSV tuple (x,y)", action="store", type=str, default='1,1')
 parser.add_argument('--de', help="maximum error in distance measurement", action="store", type=float, default=1.0)
-parser.add_argument('--ca', help="apply stage calibration files", action="store_true")
+parser.add_argument('--ca', help="don't apply stage calibration files", action="store_false")
 parser.add_argument('--cax', help="calibration file for x if stage calibration is to be applied", action="store", type=str, default='calibration_files/45855915_cal.dat')
 parser.add_argument('--cay', help="calibration file for y if stage calibration is to be applied", action="store", type=str, default='calibration_files/45855916_cal.dat')
 parser.add_argument('--m', help="median filter size as CSV tuple (x,y)", action="store", type=str, default='15,15')
@@ -59,75 +33,21 @@ args.m = ([int(n) for n in args.m.split(',')])
 args.w = ([float(n) for n in args.w.split(',')])
 
 # READ INPUT DATA FILE
-# --------------------.
-print "Reading input data..."
-x       = []
-y       = []
-d       = []
-d_err 	= []
-with open(args.f) as data:
-  for line in data:
-    if line.startswith('#'):
-      continue
-    res = line.split()
-    this_x = float(res[0])
-    this_y = float(res[1])
-    this_d = float(res[2])
-    if any(args.w):				# if we don't have a default for the window
-      if any([this_x < args.w[0],
-              this_x > args.w[1],
-              this_y < args.w[2],
-              this_y > args.w[3]]):
-        continue
-
-    try:
-      this_d_err = float(res[3])    
-      if this_d_err>args.de or this_d==0:       # additional quality checks
-        continue
-      d_err.append(this_d_err)
-    except IndexError:
-      x.append(this_x)
-      y.append(this_y)
-      d.append(this_d)
-    x.append(this_x)
-    y.append(this_y)
-    d.append(this_d)
+# --------------------
+x, y, d, d_err = read_data_file(args.f, args.de, args.w)
 
 # CORRECT FOR NONLINEAR MOTION OF STAGES
 # --------------------------------------
 if args.ca:
-  print "Applying calibration to stages..."
-  stage_x_rd = []
-  stage_x_act = []
-  with open(args.cax) as cal:
-    for line in cal:
-      try:
-        stage_x_rd.append(float(line.split()[0]))
-        stage_x_act.append(float(line.split()[1]))
-      except ValueError:
-        pass
-  fx = interp1d(stage_x_rd, stage_x_act, kind='cubic')
-
-  stage_y_rd = []
-  stage_y_act = []
-  with open(args.cay) as cal:
-    for line in cal:
-      try:
-        stage_y_rd.append(float(line.split()[0]))
-        stage_y_act.append(float(line.split()[1]))
-      except ValueError:
-        pass
-  fy = interp1d(stage_y_rd, stage_y_act, kind='cubic')
-
-  x = fx(x)
-  y = fy(y)
-
-x = np.array(x)	# required by poly[fit||val]2d
-y = np.array(y) # required by poly[fit||val]2d
-d = np.array(d) # required by poly[fit||val]2d
+    x, y = correct_stage_positions(args.cax, args.cay, x, y)
 
 # INTERPOLATE DATA ON TO REGULAR GRID 
 # -----------------------------------
+
+x = np.array(x) # required by poly[fit||val]2d
+y = np.array(y) # required by poly[fit||val]2d
+d = np.array(d) # required by poly[fit||val]2d
+
 xx_interpolated, yy_interpolated = np.mgrid[args.w[0]:args.w[1]:args.i[0], args.w[2]:args.w[3]:args.i[1]]
 zz_interpolated = griddata((x, y), d, (xx_interpolated, yy_interpolated), method='linear')
 xx_interpolated = xx_interpolated[1:-1,1:-1]		# trim off border pixels where interpolation will have yielded NaN
@@ -138,7 +58,7 @@ args.w = [args.w[0]+1, args.w[1]-1, args.w[2]+1, args.w[3]-1]
 surfaces = []
 extents = []
 
-# SET WINDOW AND ZDEPTH IF NOT SET AT COMMAND LINE
+# SET WINDOW IF NOT SET AT COMMAND LINE
 # ------------------------------------------------
 if not any(args.w):     # we can now set the default window to min/max of x,y 		                                             
   args.w = [round(min(x), 2), round(max(x), 2), round(min(y), 2), round(max(y), 2)]
