@@ -1,5 +1,6 @@
 import sys
 import argparse
+import copy
 
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
@@ -11,21 +12,18 @@ import pyfits
 
 from functions import print_stats, polyfit2d, polyval2d, read_data_file, correct_stage_positions
 
+F_CALX = "calibration_files/45855915_cal.dat"
+F_CALY = "calibration_files/45855915_cal.dat"
+
 parser = argparse.ArgumentParser()
 parser.add_argument('f', help="path to flat", action="store", type=str)
 parser.add_argument('--w', help="window, defaults to min/max of data (x1,x2,y1,y2)", action="store", type=str, default='10,290,10,290')
-parser.add_argument('--i', help="increment of interpolated grid as CSV tuple (x,y)", action="store", type=str, default='1,1')
+parser.add_argument('--i', help="increment of interpolated grid as CSV tuple (x,y)", action="store", type=str, default='5,5')
 parser.add_argument('--de', help="maximum error in distance measurement", action="store", type=float, default=1.0)
-parser.add_argument('--ca', help="don't apply stage calibration files", action="store_false")
-parser.add_argument('--cax', help="calibration file for x if stage calibration is to be applied", action="store", type=str, default='calibration_files/45855915_cal.dat')
-parser.add_argument('--cay', help="calibration file for y if stage calibration is to be applied", action="store", type=str, default='calibration_files/45855916_cal.dat')
-parser.add_argument('--m', help="median filter size as CSV tuple (x,y)", action="store", type=str, default='15,15')
+parser.add_argument('--nc', help="don't apply stage calibration files", action="store_false")
+parser.add_argument('--m', help="median filter size as CSV tuple (x,y)", action="store", type=str, default='3,3')
 parser.add_argument('--o', help="order of fit for low frequency structure", action="store", type=int, default='3')
-parser.add_argument('--p2D', help="plot 2D", action="store_true")
-parser.add_argument('--p3D', help="plot 3D", action="store_true")
-parser.add_argument('--rs', help="row stride (3d plot only)", action="store", type=float, default=5)
-parser.add_argument('--cs', help="column stride (3d plot only)", action="store", type=float, default=5)
-parser.add_argument('--fits', help="make fits file", action="store_true")
+parser.add_argument('--p', help="plot", action="store_true")
 args = parser.parse_args()
 
 args.i = ([float(n) for n in args.i.split(',')])
@@ -38,8 +36,8 @@ x, y, d, d_err = read_data_file(args.f, args.de, args.w)
 
 # CORRECT FOR NONLINEAR MOTION OF STAGES
 # --------------------------------------
-if args.ca:
-    x, y = correct_stage_positions(args.cax, args.cay, x, y)
+if args.nc:
+    x, y = correct_stage_positions(F_CALX, F_CALY, x, y)
 
 # INTERPOLATE DATA ON TO REGULAR GRID 
 # -----------------------------------
@@ -94,104 +92,100 @@ extents.append(args.w)
 
 # FIT LOW FREQUENCY STRUCTURE
 # ----------------------------
-# this is fitting of mean in each axis independenly
-'''print "Fitting low frequency structure in x..."
-xx_interpolated_mean = np.mean(xx_interpolated, axis=1)
-zz_interpolated_mean = np.mean(zz_interpolated, axis=1)
-m = np.polyfit(xx_interpolated_mean, zz_interpolated_mean, deg=args.o)
-
-xx_interpolated = xx_interpolated.T
-zz_interpolated = zz_interpolated.T
-for idx, xx in enumerate(xx_interpolated):
-  zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, xx_interpolated[idx])
-xx_interpolated = xx_interpolated.T
-zz_interpolated = zz_interpolated.T
-print_stats(zz_interpolated)
-
-print "Fitting low frequency structure in y..."
-yy_interpolated_mean = np.mean(yy_interpolated, axis=0)
-zz_interpolated_mean = np.mean(zz_interpolated, axis=0)
-m = np.polyfit(yy_interpolated_mean, zz_interpolated_mean, deg=args.o)
-
-for idx, yy in enumerate(yy_interpolated):
-  zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, yy_interpolated[idx])
-print_stats(zz_interpolated)'''
-
 # this is fitting for surface
-print "Fitting surface..."
+# produces a single instresp.dat file.
+print "Fitting 2D surface..."
 xx_interpolated_1d = xx_interpolated.flatten()							# cast to 1d
 yy_interpolated_1d = yy_interpolated.flatten()							
 zz_interpolated_1d = zz_interpolated.flatten()
 m = polyfit2d(xx_interpolated_1d, yy_interpolated_1d, zz_interpolated_1d, order=args.o)		# find coeffs
 s = polyval2d(xx_interpolated_1d, yy_interpolated_1d, m)
-zz_interpolated_1d = zz_interpolated_1d - s							# remove mean level
-zz_interpolated = zz_interpolated_1d.reshape(zz_interpolated.shape)				# reshape
+zz_interpolated_1d_surf = copy.deepcopy(zz_interpolated_1d)
+zz_interpolated_1d_surf = zz_interpolated_1d_surf - s						# remove mean level
+zz_interpolated_1d_surf = zz_interpolated_1d_surf.reshape(zz_interpolated.shape)		# reshape
 
-surfaces.append(s.reshape(zz_interpolated.shape))
+surfaces.append(s.reshape(zz_interpolated.shape))						# add fitted surface to list
+extents.append(args.w)
+surfaces.append(zz_interpolated_1d_surf)							# add residual surface to list
 extents.append(args.w)
 
+print_stats(zz_interpolated_1d_surf)
 np.savetxt("instresp.dat", m)
+print "Wrote file instresp.dat."
+print
 
 # this is fitting per row/column
-'''print "Fitting low frequency structure in x..."
+# produces an instresp_[xy?].dat file for each axis.
+## x
+print "Fitting low frequency structure in x... (1D)"
 xx_interpolated = xx_interpolated.transpose()
+yy_interpolated = yy_interpolated.transpose()
+zz_interpolated = copy.deepcopy(zz_interpolated.transpose())
+instresp_x = []
+for idx, (this_xx, this_yy, this_zz) in enumerate(zip(xx_interpolated, yy_interpolated, zz_interpolated)):
+    m = np.polyfit(this_xx, this_zz, deg=args.o)
+    instresp_x.append(np.insert(m, 0, this_yy[0]))
+    zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, xx_interpolated[idx])
+xx_interpolated = xx_interpolated.transpose()	# switch back!
+yy_interpolated = yy_interpolated.transpose()
 zz_interpolated = zz_interpolated.transpose()
-for idx, (this_xx, this_zz) in enumerate(zip(xx_interpolated, zz_interpolated)):
-  m = np.polyfit(this_xx, this_zz, deg=args.o)
-  zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, xx_interpolated[idx])
-xx_interpolated = xx_interpolated.transpose()	# switch back
-zz_interpolated = zz_interpolated.transpose()
-print_stats(zz_interpolated)
 
-print "Fitting low frequency structure in y..."
-for idx, (this_yy, this_zz) in enumerate(zip(yy_interpolated, zz_interpolated)):
-  m = np.polyfit(this_yy, this_zz, deg=args.o)
-  zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, yy_interpolated[idx])'''
-
-print_stats(zz_interpolated)
 surfaces.append(zz_interpolated)
 extents.append(args.w)
+
+print_stats(zz_interpolated)
+np.savetxt("instresp_x.dat", instresp_x)
+print "Wrote file instresp_x.dat."
+print
+
+## y
+print "Fitting low frequency structure in y... (1D)"
+instresp_y = []
+for idx, (this_xx, this_yy, this_zz) in enumerate(zip(xx_interpolated, yy_interpolated, zz_interpolated)):
+    m = np.polyfit(this_yy, this_zz, deg=args.o)
+    instresp_y.append(np.insert(m, 0, this_xx[0]))
+    zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, yy_interpolated[idx])
+surfaces.append(zz_interpolated)
+extents.append(args.w)
+
+print_stats(zz_interpolated)
+np.savetxt("instresp_y.dat", instresp_y)
+print "Wrote file instresp_y.dat."
+print
 
 # PLOTS
 # -----
 # 2D
-if args.p2D:
+if args.p:
   plt.figure()
-  plt.subplot(231)
+  plt.subplot(431)
   plt.title("data in")
   plt.imshow(surfaces[0].transpose(), interpolation=None, origin='lower', extent=extents[0])
   plt.colorbar()
-  plt.subplot(232)
+  plt.subplot(432)
   plt.title("median filtered")
   plt.imshow(surfaces[1].transpose(), interpolation=None, origin='lower', extent=extents[1])
   plt.colorbar()
-  plt.subplot(233)
+  plt.subplot(433)
   plt.title("tilt removed")
   plt.imshow(surfaces[2].transpose(), interpolation=None, origin='lower', extent=extents[2])
   plt.colorbar()
-  plt.subplot(234)
+  plt.subplot(434)
   plt.title("fitted surface to be removed")
   plt.imshow(surfaces[3].transpose(), interpolation=None, origin='lower', extent=extents[3])
   plt.colorbar()
-  plt.subplot(235)
+  plt.subplot(435)
   plt.title("residual after surface removal")
   plt.imshow(surfaces[4].transpose(), interpolation=None, origin='lower', extent=extents[4])
   plt.colorbar()
+  plt.subplot(436)
+  plt.title("residual after x fitting")
+  plt.imshow(surfaces[5].transpose(), interpolation=None, origin='lower', extent=extents[5])
+  plt.colorbar()
+  plt.subplot(437)
+  plt.title("residual after y fitting")
+  plt.imshow(surfaces[6].transpose(), interpolation=None, origin='lower', extent=extents[6])
+  plt.colorbar()
   plt.tight_layout()
   plt.show()
-
-# 3D  
-if args.p3D:
-  fig = plt.figure()
-  ax = fig.gca(projection='3d')
-  ax.plot_surface(xx_interpolated, yy_interpolated, zz_interpolated, rstride=args.rs, cstride=args.cs, cmap=cm.coolwarm, alpha=0.3)
-  plt.show()
-
-# fits
-if args.fits:
-  hdr = pyfits.core.Header()
-  pyfits.writeto("instresp.fits", zz_interpolated, hdr)
-
-
-
 

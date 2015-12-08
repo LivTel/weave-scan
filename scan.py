@@ -3,6 +3,7 @@ import sys
 import time
 import argparse
 import math
+import datetime
 
 import pylibftdi
 import numpy as np
@@ -136,8 +137,9 @@ def raster_scan(outfile):
       print
       print("scan " + str(n_scans) + " of " + str(int(n_scans_tot)))
       print("-> approximate time elapsed " + str(round(t_elapsed,1)) + "s")
-      print("-> approximate rate of " + str(round(rate,1)) + " scans/s")
+      print("-> approximate rate of " + str(round(rate,2)) + " scans/s")
       print("-> approximate time left " + str(round(n_scans_left/rate,1)) + "s")
+      print("-> approximate time of completion " + str(datetime.datetime.fromtimestamp(int(time.time()+(n_scans_left/rate))).strftime('%Y-%m-%d %H:%M:%S')))
       print 
    
 def moveStageRel(stage_serial, dist, settle_time):
