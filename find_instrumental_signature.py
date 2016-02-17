@@ -126,6 +126,9 @@ for idx, (this_xx, this_yy, this_zz) in enumerate(zip(xx_interpolated, yy_interp
     m = np.polyfit(this_xx, this_zz, deg=args.o)
     instresp_x.append(np.insert(m, 0, this_yy[0]))
     zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, xx_interpolated[idx])
+    if this_yy[0] == 275:
+      plt.plot(xx_interpolated[idx], np.polyval(m, xx_interpolated[idx]))
+plt.show()
 xx_interpolated = xx_interpolated.transpose()	# switch back!
 yy_interpolated = yy_interpolated.transpose()
 zz_interpolated = zz_interpolated.transpose()
@@ -145,6 +148,8 @@ for idx, (this_xx, this_yy, this_zz) in enumerate(zip(xx_interpolated, yy_interp
     m = np.polyfit(this_yy, this_zz, deg=args.o)
     instresp_y.append(np.insert(m, 0, this_xx[0]))
     zz_interpolated[idx] = zz_interpolated[idx] - np.polyval(m, yy_interpolated[idx])
+    plt.plot(yy_interpolated[idx], np.polyval(m, yy_interpolated[idx]))
+plt.show()
 surfaces.append(zz_interpolated)
 extents.append(args.w)
 
