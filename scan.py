@@ -10,10 +10,10 @@ import numpy as np
 
 import pyAPT
 
-READING_DELAY   = 0                                 # delay in seconds between consecutive sensor readings
+READING_DELAY   = 0.0                               # delay in seconds between consecutive sensor readings
 N_READINGS      = 100                               # number of sensor readings to take
 MAX_READ_WAIT   = (READING_DELAY*N_READINGS) + 15   # maximum period to wait for sensor reads
-SETTLE_TIME     = 0                                 # time to wait after moving stages before taking the first reading
+SETTLE_TIME     = 0.0                               # time to wait after moving stages before taking the first reading
 SERIALS         = [45855915, 45855916]              # serial numbers of stages (x, y)
 
 def readSensor(n_readings, reading_delay, max_read_wait):
@@ -126,7 +126,7 @@ def raster_scan(outfile):
     for x in np.arange(0, X_R+args.sxi, args.sxi):
       with open(outfile, "a") as f:
         mean, stdev = readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
-        f.write(str(getStagePos(serial_x)) + '\t' + str(getStagePos(serial_y)) + '\t' + str(mean) + '\t' + str(stdev) + '\n')
+        f.write(str(time.time()) + '\t' + str(getStagePos(serial_x)) + '\t' + str(getStagePos(serial_y)) + '\t' + str(mean) + '\t' + str(stdev) + '\n')
       moveStageRel(serial_x, args.sxi, SETTLE_TIME)
 
       n_scans = n_scans+1
@@ -180,7 +180,7 @@ if __name__ == "__main__":
       res = readSensor(N_READINGS, READING_DELAY, MAX_READ_WAIT)
       print str(time.time()), '\t', str(res[0]), '\t', str(res[1])
       with open(args.f, 'a') as f:
-        f.write(str(time.time()) + '\t' + str(res[0]) + '\t' + str(res[1]) + '\n')
+        f.write(str(time.time()) + '\t' + '-' + '\t' + '-' + '\t' + str(res[0]) + '\t' + str(res[1]) + '\n')
 
   if args.m or args.s:
     if args.w is None:
