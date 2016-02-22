@@ -53,10 +53,11 @@ x, y, d, d_err = read_data_file(args.f, args.de, args.w)
 if args.nc:
     x, y = correct_stage_positions(F_CALX, F_CALY, x, y)
 
-## DEBUG TO SHOW DEVIATION FOR NO INTERPOLATION
-'''plt.scatter(x, y, c=d, s=15, linewidth=0, marker='s', cmap="autumn")
-plt.colorbar()
-plt.show()'''
+# SHOW DEVIATION FOR NO INTERPOLATION
+# -----------------------------------
+#plt.scatter(x, y, c=d, s=15, linewidth=0, marker='s', cmap="autumn")
+#plt.colorbar()
+#plt.show()
 
 # INTERPOLATE DATA ON TO REGULAR GRID 
 # -----------------------------------
@@ -176,18 +177,28 @@ if args.p2D:
     plt.imshow(surfaces[2].transpose(), vmin=args.z[1], vmax=args.z[0], interpolation=None, origin='lower', extent=extents[2])
     plt.colorbar()
     plt.subplot(324)
-    plt.title("surface response removed")
+    plt.title("surface response removed (2D mode)")
     plt.imshow(surfaces[3].transpose(), vmin=args.z[1], vmax=args.z[0], interpolation=None, origin='lower', extent=extents[3])
     plt.colorbar()
     plt.subplot(325)
-    plt.title("residual after x fitting")
+    plt.title("residual after x fitting (1D mode)")
     plt.imshow(surfaces[4].transpose(), vmin=args.z[1], vmax=args.z[0], interpolation=None, origin='lower', extent=extents[4])
     plt.colorbar()
     plt.subplot(326)
-    plt.title("residual after y fitting")
+    plt.title("residual after y fitting (1D mode)")
     plt.imshow(surfaces[5].transpose(), vmin=args.z[1], vmax=args.z[0], interpolation=None, origin='lower', extent=extents[5])
     plt.colorbar()
     plt.tight_layout()
+    plt.show()
+ 
+    plt.subplot(211)
+    plt.title("mean deviation in x")
+    #plt.plot(np.mean(surfaces[3].transpose(), axis=0))	# 2D mode
+    plt.plot(np.mean(surfaces[5].transpose(), axis=0))	# 1D mode
+    plt.subplot(212)
+    plt.title("mean deviation in y")
+    #plt.plot(np.mean(surfaces[3].transpose(), axis=1))	# 2D mode
+    plt.plot(np.mean(surfaces[5].transpose(), axis=1))	# 1D mode
     plt.show()
 
 # 3D  
