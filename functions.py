@@ -3,6 +3,14 @@ import itertools
 import numpy as np
 from scipy.interpolate import interp1d
 
+def correct_for_temperature(cat, d, t):
+    print "Applying temperature correction..."
+    c = np.load(cat)
+    offsets = np.polyval(c, t)
+    d_cal = d - offsets
+
+    return d_cal
+
 def correct_stage_positions(cax, cay, x, y):
     print "Applying calibration to stages..."
     stage_x_rd = []
@@ -61,39 +69,47 @@ def print_stats(array):
 
 def read_data_file(f, de, w):
     print "Reading input data..."
+    TIME  = []
     x	  = []
     y	  = []
     d	  = []
-    d_err = []
+    d_err = [] 
+    t 	  = []
+    h     = []
     with open(f) as data:
         for line in data:
             if line.startswith('#'):
                 continue
             res = line.split()
-            this_x = float(res[1])
-            this_y = float(res[2])
-            this_d = float(res[3])
-            if any(w):					  # if we don't have a default for the window
-                if any([this_x < w[0],
-                        this_x > w[1],
-                        this_y < w[2],
-                        this_y > w[3]]):
-                    continue
-
+            this_time = float(res[0])
             try:
-                this_d_err = float(res[4])    
-                if this_d_err>de or this_d==0:       	# additional quality checks
-                    continue
-                d_err.append(this_d_err)
-            except IndexError:
-                x.append(this_x)
-                y.append(this_y)
-                d.append(this_d)
+                this_x = float(res[1])
+                this_y = float(res[2])
+            except ValueError:
+                this_x = -1
+                this_y = -1
+            this_d = float(res[3])
+            this_d_err = float(res[4])   
+            this_t = float(res[5])   
+            this_h = float(res[6])   
+            if w is not None:
+                if any(w):				# if we don't have a default for the window
+                    if any([this_x < w[0],
+                           this_x > w[1],
+                           this_y < w[2],
+                           this_y > w[3]]):
+                         continue
+            if this_d_err>de or this_d==0:       	# additional quality checks
+                continue
+            TIME.append(this_time)
             x.append(this_x)
             y.append(this_y)
             d.append(this_d)
+            d_err.append(this_d_err)
+            t.append(this_t)
+            h.append(this_h)
     
-    return x, y, d, d_err
+    return TIME, x, y, d, d_err, t, h
 
 def read_processed_scan_file(f, de):
     print "Reading input data..."

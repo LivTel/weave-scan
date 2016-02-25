@@ -76,7 +76,7 @@ surfaces.append(fitted_s-zz_interpolated)	# add residual surface to list
 extents.append(w)
 
 print_stats(fitted_s-zz_interpolated)
-np.save("instresp.dat", it)
+np.save("instresp", it)
 print "Wrote file instresp.dat."
 print
 
