@@ -13,47 +13,63 @@ import pyfits
 from functions import print_stats, polyfit2d, polyval2d, read_processed_scan_file, correct_stage_positions
 
 parser = argparse.ArgumentParser()
-parser.add_argument('f', help="path to processed scan output", action="store", type=str)
-parser.add_argument('--i', help="increment of interpolated grid as CSV tuple (x,y). Should match that used in scan.", action="store", type=str, default='55,55')
-parser.add_argument('--de', help="maximum error in repeatability of distance", action="store", type=float, default=3)
-parser.add_argument('--o', help="order of interpolate for low frequency structure", action="store", type=int, default='5')
-parser.add_argument('--s', help="smoothing factor for interpolate", action="store", type=int, default='1')
+parser.add_argument('--f', help="path to processed scan output", action="append", type=str)
+parser.add_argument('--w', help="window to use data points (x1,x2,y1,y2).", action="store", type=str, default='10,290,10,290')
+parser.add_argument('--i', help="increment of interpolated grid as CSV tuple (x,y)", action="store", type=str, default='5,5')
+parser.add_argument('--de', help="maximum error in repeatability of distance", action="store", type=float, default=1)
+parser.add_argument('--o', help="order of interpolate for low frequency structure", action="store", type=int, default=5)
+parser.add_argument('--s', help="smoothing factor for interpolate", action="store", type=int, default=3)
 parser.add_argument('--p', help="make plots?", action="store_true")
 args = parser.parse_args()
 
+args.w = ([float(n) for n in args.w.split(',')])
 args.i = ([float(n) for n in args.i.split(',')])
 
-# READ INPUT PROCESSED SCAN FILE
-# ------------------------------
-x, y, d, d_err = read_processed_scan_file(args.f, args.de)
+# READ INPUT PROCESSED SCAN FILES
+# -------------------------------
 
-# INTERPOLATE DATA ON TO REGULAR GRID 
-# -----------------------------------
+x = []
+y = []
+d = []
+d_err = []
+zz_interpolated_all = []
 
-x = np.array(x) # required by poly[fit||val]2d
-y = np.array(y) # required by poly[fit||val]2d
-d = np.array(d) # required by poly[fit||val]2d
-w = np.min(x), np.max(x), np.min(y), np.max(y)
-
+w = args.w
 xx_interpolated, yy_interpolated = np.mgrid[w[0]:w[1]:args.i[0], w[2]:w[3]:args.i[1]]
-zz_interpolated = griddata((x, y), d, (xx_interpolated, yy_interpolated), method='nearest')
+for fi in args.f:
+    this_x, this_y, this_d, this_d_err = read_processed_scan_file(fi, args.de)
+
+    # INTERPOLATE DATA ON TO REGULAR GRID 
+    # -----------------------------------
+    x = np.asarray(this_x) # required by poly[fit||val]2d
+    y = np.asarray(this_y) # required by poly[fit||val]2d
+    d = np.asarray(this_d) # required by poly[fit||val]2d
+
+    this_zz_interpolated = griddata((x, y), d, (xx_interpolated, yy_interpolated), method='linear')
+
+    # SUBTRACT MEAN LEVEL OFF (GROSS X/Y TILT)
+    # ----------------------------------------
+    print "Subtracting mean plane (x/y tilt)..."
+    this_xx_interpolated = xx_interpolated[1:-1, 1:-1]
+    this_yy_interpolated = yy_interpolated[1:-1, 1:-1]
+    this_zz_interpolated = this_zz_interpolated[1:-1, 1:-1]
+
+    this_xx_interpolated_1d = this_xx_interpolated.flatten()								# cast to 1d
+    this_yy_interpolated_1d = this_yy_interpolated.flatten()							
+    this_zz_interpolated_1d = this_zz_interpolated.flatten()
+    m = polyfit2d(this_xx_interpolated_1d, this_yy_interpolated_1d, this_zz_interpolated_1d, order=1)			# find coeffs
+    this_zz_interpolated_1d = this_zz_interpolated_1d - polyval2d(this_xx_interpolated_1d, this_yy_interpolated_1d, m)	# remove mean level
+    this_zz_interpolated = this_zz_interpolated_1d.reshape(this_zz_interpolated.shape)					# reshape
+
+    zz_interpolated_all.append(this_zz_interpolated)
+
+xx_interpolated = xx_interpolated[1:-1, 1:-1]
+yy_interpolated = yy_interpolated[1:-1, 1:-1]
+zz_interpolated = np.mean(zz_interpolated_all, axis=0)
 
 surfaces = []
 extents = []
 
-print_stats(zz_interpolated)
-surfaces.append(zz_interpolated)
-extents.append(w)
-
-# SUBTRACT MEAN LEVEL OFF (GROSS X/Y TILT)
-# ----------------------------------------
-print "Subtracting mean plane (x/y tilt)..."
-xx_interpolated_1d = xx_interpolated.flatten()							# cast to 1d
-yy_interpolated_1d = yy_interpolated.flatten()							
-zz_interpolated_1d = zz_interpolated.flatten()
-m = polyfit2d(xx_interpolated_1d, yy_interpolated_1d, zz_interpolated_1d, order=1)		# find coeffs
-zz_interpolated_1d = zz_interpolated_1d - polyval2d(xx_interpolated_1d, yy_interpolated_1d, m)	# remove mean level
-zz_interpolated = zz_interpolated_1d.reshape(zz_interpolated.shape)				# reshape
 print_stats(zz_interpolated)
 surfaces.append(zz_interpolated)
 extents.append(w)
@@ -90,17 +106,19 @@ if args.p:
   plt.imshow(surfaces[0].transpose(), interpolation=None, origin='lower', extent=extents[0])
   plt.colorbar()
   plt.subplot(222)
-  plt.title("tilt removed")
+  plt.title("fitted surface to be removed")
   plt.imshow(surfaces[1].transpose(), interpolation=None, origin='lower', extent=extents[1])
   plt.colorbar()
   plt.subplot(223)
-  plt.title("fitted surface to be removed")
+  plt.title("residual after surface removal")
   plt.imshow(surfaces[2].transpose(), interpolation=None, origin='lower', extent=extents[2])
   plt.colorbar()
-  plt.subplot(224)
-  plt.title("residual after surface removal")
-  plt.imshow(surfaces[3].transpose(), interpolation=None, origin='lower', extent=extents[3])
-  plt.colorbar()
   plt.tight_layout()
+  plt.show()
+
+  fig = plt.figure()
+  ax = fig.gca(projection='3d')
+  ax.set_zlim(-20,20)
+  ax.plot_surface(xx_interpolated, yy_interpolated, surfaces[1].transpose(), cmap=cm.Reds)
   plt.show()
 

@@ -1,3 +1,39 @@
+weave-scan
+=============
+
+# Overview
+
+This package provides tools to drive the Thorlabs LTS300/M translation stages and STIL confocal sensor both
+independently and in unison (as a scan).
+
+# Translation Stage Command Set
+
+The serial number, [**serial**], for each stage is printed on the side nearest to the motor drive. You must 
+be superuser to execute these commands, or use `sudo`.
+
+* Home the stages (req. after power cycle)
+
+`sudo python home.py [serial]`
+
+* Move a stage to an absolute position
+
+`sudo python goto.py [serial] [position_in_mm]`
+
+* Move a stage to a relative position
+
+`sudo python move.py [serial] [position_in_mm]`
+
+* Get the current position of a stage
+
+`sudo python get_position.py [serial]`
+
+
+
+
+# To enable web tracking of environment and sensor readings
+
+Symlink the weave-scan directory to a directory served by apache, e.g. /var/www/html.
+
 # To plot a surface
 
 To plot a surface, use the `plot_a_surface.py` script:

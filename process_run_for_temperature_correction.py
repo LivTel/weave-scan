@@ -44,6 +44,7 @@ c2 = np.polyfit([ti for ti in t if ti>args.tr[0] and ti<args.tr[1]], [oi for oi,
 np.save("t_cor", c2)
 
 if args.p:
+    #te = np.arange(22.5,26,0.1)
     plt.subplot(211)
     plt.plot(t, d, 'kx')
     plt.plot(t, np.polyval(c, t), 'r-')

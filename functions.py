@@ -8,7 +8,6 @@ def correct_for_temperature(cat, d, t):
     c = np.load(cat)
     offsets = np.polyval(c, t)
     d_cal = d - offsets
-
     return d_cal
 
 def correct_stage_positions(cax, cay, x, y):
@@ -61,10 +60,10 @@ def polyval2d(x, y, m):
 
 def print_stats(array):
     print
-    print "Percentile (0.5) of data is: " + '\t\t\t' + str(round(np.nanpercentile(array, 0.5), 2)) + "um"
-    print "Percentile (99.5) of data is: " + '\t\t\t' + str(round(np.nanpercentile(array, 99.5), 2)) + "um"
-    print "Peak-to-peak amplitude of structure is: " + '\t' + str(round(np.nanpercentile(array, 99.5)-np.nanpercentile(array, 0.5), 2)) + "um"
-    print "Percentile (99.5) of absolute error is: " + '\t' + str(round(np.nanpercentile(abs(array), 99.5), 2)) + "um"
+    print "5th percentile of data is: " + '\t\t\t' + str(round(np.nanpercentile(array, 5), 2)) + "um"
+    print "95th percentile of data is: " + '\t\t\t' + str(round(np.nanpercentile(array, 95), 2)) + "um"
+    print "Peak-to-peak amplitude of structure is: " + '\t' + str(round(np.nanpercentile(array, 95)-np.nanpercentile(array, 5), 2)) + "um"
+    print "Half peak-to-peak amplitude of structure is: " + '\t' + str(round((np.nanpercentile(array, 95)-np.nanpercentile(array, 5))/2, 2)) + "um"
     print 
 
 def read_data_file(f, de, w):
