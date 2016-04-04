@@ -145,7 +145,7 @@ This produces another TSV file with entries as discussed in **Building a Tempera
 Once the data has been acquired, we process the run using the `process_run_for_flat.py` script. This 
 produces a single output file, `flat.dat`, containing (optionally position calibrated) stage x/y positions 
 and corresponding (optionally temperature calibrated) averaged measurement values/errors. Adding several 
-directories to the command will use the average over all runs, but each run must be exactly the same in terms 
+di#rectories to the command will use the average over all runs, but each run must be exactly the same in terms 
 of aperture x/y coordinates for this to make sense. 
 
 `$ python process_run_for_flat.py --d results/1/ --d results/2/ --d results/3/`
