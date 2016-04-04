@@ -32,7 +32,9 @@ be superuser to execute these commands, or use `sudo`.
 # Sensor and Scanning Command Set
 
 Scanning functionality is provided by the `scan.py` script. You must be superuser to execute these commands, 
-or use `sudo`.
+or use `sudo`. `scan.py` expects any temperature and humidity data to be sent tab-separated over serial (ttyUSB0, though 
+this can be changed with the `--dt` flag). The baud rate can also be changed with the `--dtb` flag (default is 9600). 
+Similar flags exist for the stage device name and baud (`--ds` and `--dsb` respectively).
 
 * Print help blurb
 
@@ -44,40 +46,42 @@ or use `sudo`.
 
 * Move sensor head to starting position (`--m`) defined by window (`--w`) parameter, begin scan (`--s`) and 
 read data to [**file**]. Scan intervals are set by the `--sxi` and `--syi` flags. Units are in mm. Window 
-coordinates are measured as (*x1*,*x2*,*y1*,*y2*).
+coordinates are measured as (*x1*,*x2*,*y1*,*y2*), e.g. to scan a window from 0 to 300mm in both x and y, 
+with an increment of 1mm:
 
 `sudo python scan.py [file] --m --w 0,300,0,300 --s --sxi 1 --syi 1`
 
 It is also possible to scan in *aperture* mode using `multi_scan.py`. In this mode, a series of apertures with 
-x and y coordinates defined by the `--wx` and `--wy` appendable flags are scanned over a box of size `--b`, `--n` times 
+x and y coordinates defined by the `--wx` and `--wy` *appendable* flags are scanned over a box of size `--b`, `--n` times 
 (default 1) with an increment of `--i`. Seperate files outputted for each, e.g. for four apertures of (150, 150),
- (150, 200), (250, 150), and (250, 200).
+ (150, 200), (200, 150), and (200, 200):
 
-`sudo python multi_scan.py --wx 150 --wx 250 --wy 150 --wy 200 --b 1 --i 0.1 --n 1`
+`sudo python multi_scan.py --wx 150 --wx 200 --wy 150 --wy 200 --b 1 --i 0.1 --n 1`
 
-# Enable Environment Monitoring Over HTTP
+## Enabling a Web Interface
 
-Append the plots (`--p`) flag to `scan.py` calls and symlink the weave-scan directory to a directory served by 
-apache, e.g. `/var/www/html`.
+To enable a web interface for environment monitoring, symlink the `weave-scan` directory to a directory served by 
+apache, e.g. `/var/www/html`. The (`--p`) flag must have been used when invoking scans in order to generate 
+depth, temperature and humidity plots.
 
 # Data Calibration
 
 Data recorded by the scanner is subject to instrument errors, both repeatable and random, arising from the 
 shape of the translation stages (giving error of *z* ~20micron) and temperature fluctuations (giving error of 
 *z* ~5micron). There are a series of calibration files that can be used to compensate for these effects if the 
-desired accuracy is to be lower than a few tens of micron. A description of the procedure to generate these files 
+desired depth accuracy is to be lower than a few tens of micron. A description of the procedure to generate these files 
 is given in the following sections.
 
-Two files are provided as per specification from the manufacturer to map encoder values to actual values for both 
-the x and y stages. These are found in `calibration_files/4585591[56?]_cal.dat`. These calibration files will 
+Additonally, two files are provided as per specification from the manufacturer to map encoder values to actual values 
+for both the x and y stages. These are found in `calibration_files/4585591[56?]_cal.dat`. These files will 
 automatically be used by any routine with stage x/y position correction as an option unless the `--nc` flag 
 is specified.
 
 ## Building a Temperature Calibration File
 
-Depending on ambient air temperature, the scanner reading drifts non-linearly to the order of ~3um/deg. To correct for 
+Depending on ambient air temperature, the scanner reading drifts non-linearly to the order of ~3micron/deg. To correct for 
 this, the sensor is read out without moving the stages and the air-con turned off (only if the temperature has already 
-stabilised at the air-con set temperature). Obviously the temperature sensor must be attached.
+stabilised at the air-con set temperature). Obviously the temperature sensor must be attached. 
 
 ### 1. Generating the Data
 
@@ -138,7 +142,7 @@ This produces another TSV file with entries as discussed in **Building a Tempera
 
 ## 2. Processing
 
-Once the data has been acquired, we must then process the run using the `process_run_for_flat.py` script. This 
+Once the data has been acquired, we process the run using the `process_run_for_flat.py` script. This 
 produces a single output file, `flat.dat`, containing (optionally position calibrated) stage x/y positions 
 and corresponding (optionally temperature calibrated) averaged measurement values/errors. Adding several 
 directories to the command will use the average over all runs, but each run must be exactly the same in terms 
