@@ -134,15 +134,6 @@ if args.nf:
         d[idx] = d[idx] - interpolate.bisplev(this_x, this_y, it)
 print_stats(d)
 
-#FIXME
-'''import scipy.signal	
-fig = plt.figure()
-plt.scatter(x, y, s=5, c=h, marker='x', vmax=np.percentile(h, 95), vmin=np.percentile(h, 5))  
-plt.colorbar()
-plt.show()
-exit(0)'''
-
-
 if args.p:
     fig = plt.figure()
     ax = fig.gca(projection='3d')
@@ -179,11 +170,6 @@ if args.p:
         ax.set_zlim(-20,20)
         ax.plot_surface(xx_interpolated, yy_interpolated, zz_interpolated, cmap=cm.Reds)
         plt.show()
-
-#FIXME
-import pyfits
-pyfits.writeto("test.fits", zz_interpolated)
-
 
 
 
