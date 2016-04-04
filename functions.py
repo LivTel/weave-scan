@@ -89,8 +89,14 @@ def read_data_file(f, de, w):
                 this_y = -1
             this_d = float(res[3])
             this_d_err = float(res[4])   
-            this_t = float(res[5])   
-            this_h = float(res[6])   
+            try:
+                this_t = float(res[5])  
+            except IndexError:
+                this_t = None 
+            try:
+                this_h = float(res[6])  
+            except IndexError:
+                this_h = None  
             if w is not None:
                 if any(w):				# if we don't have a default for the window
                     if any([this_x < w[0],

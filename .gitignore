@@ -1,2 +1,5 @@
 *.pyc 
 *~
+
+results.*
+results*
