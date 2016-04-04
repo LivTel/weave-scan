@@ -233,27 +233,36 @@ if __name__ == "__main__":
   parser.add_argument('--p', help="make plot?", action="store_true")
   args = parser.parse_args()
 
-  T_SERIAL = serial.Serial(
-    port=args.dt,
-    baudrate=args.dtb,
-    parity=serial.PARITY_NONE,
-    stopbits=serial.STOPBITS_ONE,
-    bytesize=serial.EIGHTBITS
-  )
-  if T_SERIAL.isOpen():
-    T_SERIAL.close()
-  T_SERIAL.open()  
+  # Try open the serial temperature sensor device (optional)
+  try:
+    T_SERIAL = serial.Serial(
+      port=args.dt,
+      baudrate=args.dtb,
+      parity=serial.PARITY_NONE,
+      stopbits=serial.STOPBITS_ONE,
+      bytesize=serial.EIGHTBITS
+    )
+    if T_SERIAL.isOpen():
+      T_SERIAL.close()
+    T_SERIAL.open()  
+  except OSError:
+    T_SERIAL = None
 
-  S_SERIAL = serial.Serial(
-    port=args.ds,
-    baudrate=args.dsb,
-    parity=serial.PARITY_NONE,
-    stopbits=serial.STOPBITS_ONE,
-    bytesize=serial.EIGHTBITS
-  )
-  if S_SERIAL.isOpen():
-    S_SERIAL.close()
-  S_SERIAL.open() 
+  # Try open the stage serial devices
+  try:
+    S_SERIAL = serial.Serial(
+      port=args.ds,
+      baudrate=args.dsb,
+      parity=serial.PARITY_NONE,
+      stopbits=serial.STOPBITS_ONE,
+      bytesize=serial.EIGHTBITS
+    )
+    if S_SERIAL.isOpen():
+      S_SERIAL.close()
+    S_SERIAL.open() 
+  except OSError:
+    print "Couldn't open translation stage serial device. Are you superuser?"
+    exit(0)
 
   if args.r:
     TIME = []
